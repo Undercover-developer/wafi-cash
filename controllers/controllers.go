@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"math"
 	"math/rand"
 	"reflect"
 	"wafi-cash/models"
@@ -9,7 +10,7 @@ import (
 var users []models.User
 var accounts []models.Account
 
-var usdExchangeRate = map[string]float64{"USD": 1, "NGN": 415, "GBP": 0.86, "YUAN": 6.89}
+var usdExchangeRate = map[string]float64{"USD": 1, "NGN": 415, "GBP": 1.14, "YUAN": 6.89}
 
 func AddUser(name string) models.User {
 	id := rand.Intn(100)
@@ -126,11 +127,31 @@ func isPossibleTransaction(account models.Account, amount float64, currency stri
 			continue
 		}
 		if balance.Type().Field(i).Name == currency {
-			balance.Field(i).SetFloat(balance.Field(i).Float() - amount)
-			amount = amount - balance.Field(i).Float()
+			//if balance = 0, continue
+			if balance.Field(i).Float() == 0 {
+				continue
+			}
+			// check if balance is greater than amount
+			if balance.Field(i).Float() >= amount {
+				return true
+			}
+			//set amount to amount - balance
+			amount -= balance.Field(i).Float()
+			//set balance to 0
+			reflect.ValueOf(&account).Elem().Field(i).SetFloat(0)
 		} else {
-			balance.Field(i).SetFloat((balance.Field(i).Float() * currencyExchangeRate[currency]) - amount)
-			amount = amount - (balance.Field(i).Float() * currencyExchangeRate[currency])
+			//if balance = 0, continue
+			if balance.Field(i).Float() == 0 {
+				continue
+			}
+			//check if amount is less than balance * exchange rate
+			if amount <= (balance.Field(i).Float() * currencyExchangeRate[balance.Type().Field(i).Name]) {
+				return true
+			}
+			//set amount to amount (balance * exchange rate)
+			amount -= balance.Field(i).Float() * currencyExchangeRate[balance.Type().Field(i).Name]
+			//set balance to 0
+			reflect.ValueOf(&account).Elem().Field(i).SetFloat(0)
 		}
 		if amount <= 0 {
 			return true
@@ -148,11 +169,33 @@ func performAggregateTransaction(accountIdx int, amount float64, currency string
 			}
 
 			if balance.Type().Field(i).Name == currency {
-				balance.Field(i).SetFloat(balance.Field(i).Float() - amount)
-				amount = amount - balance.Field(i).Float()
+				//if balance = 0, continue
+				if balance.Field(i).Float() == 0 {
+					continue
+				}
+				//check if balance is greater than amount
+				if balance.Field(i).Float() >= amount {
+					reflect.ValueOf(&accounts[accountIdx]).Elem().Field(i).SetFloat(balance.Field(i).Float() - amount)
+					return
+				}
+				//set amount to amount - balance
+				amount -= balance.Field(i).Float()
+				//set balance to 0
+				reflect.ValueOf(&accounts[accountIdx]).Elem().Field(i).SetFloat(0)
 			} else {
-				balance.Field(i).SetFloat((balance.Field(i).Float() * currencyExchangeRate[currency]) - amount)
-				amount = amount - (balance.Field(i).Float() * currencyExchangeRate[currency])
+				//if balance = 0, continue
+				if balance.Field(i).Float() == 0 {
+					continue
+				}
+				//check if amount is less than balance * exchange rate
+				if amount < (balance.Field(i).Float() * currencyExchangeRate[balance.Type().Field(i).Name]) {
+					reflect.ValueOf(&accounts[accountIdx]).Elem().Field(i).SetFloat(math.Round(((balance.Field(i).Float()*currencyExchangeRate[balance.Type().Field(i).Name])-amount)*100) / 100)
+					return
+				}
+				//set amount to amount - (balance * exchange rate)
+				amount -= balance.Field(i).Float() * currencyExchangeRate[balance.Type().Field(i).Name]
+				//set balance to 0
+				reflect.ValueOf(&accounts[accountIdx]).Elem().Field(i).SetFloat(0)
 			}
 			if amount <= 0 {
 				return
