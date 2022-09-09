@@ -55,7 +55,7 @@ userA deposit 2USD
 then 400 NGN,
 then 1GBP,
 then userA transfers 3USD to userB.
-userA's balance after the transfer should then become 0USD, 400NGN and 0.14GBP
+userA's balance after the transfer should then become 0USD, 400NGN and 0.16GBP
 */
 
 func TestTransfer2(t *testing.T) {
@@ -74,7 +74,7 @@ func TestTransfer2(t *testing.T) {
 	if controllers.GetBalance(userA, models.NGN) != 400 {
 		t.Errorf("Transfer is not correct")
 	}
-	if controllers.GetBalance(userA, models.GBP) != 0.14 {
+	if controllers.GetBalance(userA, models.GBP) != 0.16 {
 		t.Errorf("Transfer is not correct")
 	}
 }
